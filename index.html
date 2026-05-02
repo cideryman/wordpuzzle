@@ -111,7 +111,8 @@
       color: var(--ink);
     }
 
-    .mode-tabs button:last-child { border-right: 0; }
+    .mode-tabs button:nth-child(2n) { border-right: 0; }
+    .mode-tabs button:nth-child(n + 3) { border-top: 1px solid #b8c0ca; }
     .mode-tabs button[aria-pressed="true"] { background: var(--accent); color: #fff; }
 
     .row {
@@ -302,6 +303,53 @@
 
     .maze-controls .empty { visibility: hidden; }
 
+    .embed-wrap {
+      display: grid;
+      gap: 12px;
+    }
+
+    .embed-frame {
+      width: 100%;
+      min-height: 760px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+    }
+
+    .slide-wrap {
+      display: grid;
+      gap: 14px;
+      justify-items: center;
+    }
+
+    .slide-board {
+      width: min(86vw, 520px);
+      aspect-ratio: 1;
+      display: grid;
+      grid-template-columns: repeat(var(--slide-size), 1fr);
+      grid-template-rows: repeat(var(--slide-size), 1fr);
+      gap: 8px;
+      padding: 8px;
+      border: 3px solid #111;
+      background: #dfe7e5;
+    }
+
+    .tile {
+      display: grid;
+      place-items: center;
+      border: 1px solid #b8c0ca;
+      border-radius: 6px;
+      background: #fff;
+      color: var(--accent-strong);
+      font-size: clamp(20px, 6vw, 42px);
+      font-weight: 800;
+      box-shadow: 0 2px 0 rgba(0,0,0,.12);
+    }
+
+    .tile.empty {
+      visibility: hidden;
+    }
+
     .print-page {
       width: 210mm;
       min-height: 297mm;
@@ -402,6 +450,8 @@
       .word-board { grid-template-columns: 1fr; }
       .word-grid { width: min(94vw, 560px); justify-self: center; }
       .maze { width: min(94vw, 560px); }
+      .embed-frame { min-height: 680px; }
+      .slide-board { width: min(94vw, 560px); gap: 6px; }
     }
 
     @page { size: A4 portrait; margin: 0; }
@@ -430,6 +480,8 @@
         <div class="mode-tabs">
           <button type="button" data-mode="word" aria-pressed="true">단어 찾기</button>
           <button type="button" data-mode="maze">미로 찾기</button>
+          <button type="button" data-mode="sudoku">스도쿠</button>
+          <button type="button" data-mode="slide">15 퍼즐</button>
         </div>
       </div>
 
@@ -483,6 +535,24 @@
         </div>
       </div>
 
+      <div id="sudokuSettings" class="hidden">
+        <div class="group">
+          <span class="label">스도쿠</span>
+          <p class="hint">기존 스도쿠 앱을 이 화면 안에서 엽니다. 단독 실행도 가능합니다.</p>
+        </div>
+      </div>
+
+      <div id="slideSettings" class="hidden">
+        <div class="group">
+          <label for="slideDifficulty">15 퍼즐 난이도</label>
+          <select id="slideDifficulty">
+            <option value="easy">쉬움 - 3 x 3</option>
+            <option value="medium" selected>보통 - 4 x 4</option>
+            <option value="hard">어려움 - 5 x 5</option>
+          </select>
+        </div>
+      </div>
+
       <div class="buttons">
         <button class="primary" type="button" id="generateBtn">새 퍼즐 생성</button>
         <button class="secondary" type="button" id="resetBtn">플레이 초기화</button>
@@ -529,6 +599,30 @@
         </div>
       </section>
 
+      <section class="play-panel hidden" id="sudokuPanel">
+        <div class="play-head">
+          <div>
+            <h2>스도쿠</h2>
+            <p class="hint">기존 스도쿠 앱을 메뉴 안에 연결했습니다.</p>
+          </div>
+        </div>
+        <div class="embed-wrap">
+          <iframe class="embed-frame" id="sudokuFrame" title="스도쿠 앱" src="https://cideryman.github.io/sudoku/"></iframe>
+        </div>
+      </section>
+
+      <section class="play-panel hidden" id="slidePanel">
+        <div class="play-head">
+          <div>
+            <h2>15 퍼즐</h2>
+            <p class="hint" id="slideMessage">빈칸 옆 숫자를 눌러 순서대로 맞추세요. 방향키도 사용할 수 있습니다.</p>
+          </div>
+        </div>
+        <div class="slide-wrap">
+          <div class="slide-board" id="slideBoard" aria-label="15 퍼즐 보드"></div>
+        </div>
+      </section>
+
       <section class="print-page" id="wordPrintPage">
         <div class="print-title">
           <h2>단어 찾기 퍼즐</h2>
@@ -567,16 +661,20 @@
     const state = {
       mode: "word",
       word: { size: 12, words: [], grid: [], placements: [], found: new Set(), dragStart: null, dragPath: [] },
-      maze: { size: 21, grid: [], player: { row: 1, col: 1 }, goal: { row: 19, col: 19 }, visited: new Set() }
+      maze: { size: 21, grid: [], player: { row: 1, col: 1 }, goal: { row: 19, col: 19 }, visited: new Set() },
+      slide: { size: 4, tiles: [], moves: 0 }
     };
 
     const modeButtons = document.querySelectorAll("[data-mode]");
     const wordSettings = document.getElementById("wordSettings");
     const mazeSettings = document.getElementById("mazeSettings");
+    const sudokuSettings = document.getElementById("sudokuSettings");
+    const slideSettings = document.getElementById("slideSettings");
     const wordsEl = document.getElementById("words");
     const sizeEl = document.getElementById("size");
     const directionEl = document.getElementById("direction");
     const mazeDifficultyEl = document.getElementById("mazeDifficulty");
+    const slideDifficultyEl = document.getElementById("slideDifficulty");
     const generateBtn = document.getElementById("generateBtn");
     const resetBtn = document.getElementById("resetBtn");
     const printBtn = document.getElementById("printBtn");
@@ -585,6 +683,8 @@
     const mazeMessageEl = document.getElementById("mazeMessage");
     const wordPanel = document.getElementById("wordPanel");
     const mazePanel = document.getElementById("mazePanel");
+    const sudokuPanel = document.getElementById("sudokuPanel");
+    const slidePanel = document.getElementById("slidePanel");
     const wordPrintPage = document.getElementById("wordPrintPage");
     const mazePrintPage = document.getElementById("mazePrintPage");
     const gridEl = document.getElementById("grid");
@@ -595,6 +695,9 @@
     const mazeEl = document.getElementById("maze");
     const printMazeEl = document.getElementById("printMaze");
     const mazePrintMetaEl = document.getElementById("mazePrintMeta");
+    const sudokuFrame = document.getElementById("sudokuFrame");
+    const slideBoardEl = document.getElementById("slideBoard");
+    const slideMessageEl = document.getElementById("slideMessage");
 
     function shuffle(items) {
       const copy = items.slice();
@@ -610,11 +713,16 @@
       modeButtons.forEach(button => button.setAttribute("aria-pressed", String(button.dataset.mode === mode)));
       wordSettings.classList.toggle("hidden", mode !== "word");
       mazeSettings.classList.toggle("hidden", mode !== "maze");
+      sudokuSettings.classList.toggle("hidden", mode !== "sudoku");
+      slideSettings.classList.toggle("hidden", mode !== "slide");
       wordPanel.classList.toggle("hidden", mode !== "word");
       mazePanel.classList.toggle("hidden", mode !== "maze");
+      sudokuPanel.classList.toggle("hidden", mode !== "sudoku");
+      slidePanel.classList.toggle("hidden", mode !== "slide");
       wordPrintPage.classList.toggle("hidden", mode !== "word");
       mazePrintPage.classList.toggle("hidden", mode !== "maze");
-      statusEl.textContent = mode === "word" ? "단어 찾기 모드입니다." : "미로 찾기 모드입니다.";
+      const labels = { word: "단어 찾기", maze: "미로 찾기", sudoku: "스도쿠", slide: "15 퍼즐" };
+      statusEl.textContent = `${labels[mode]} 모드입니다.`;
     }
 
     function cleanWord(word) {
@@ -895,22 +1003,127 @@
       renderMaze();
     }
 
+    function slideSize() {
+      const value = slideDifficultyEl.value;
+      if (value === "easy") return 3;
+      if (value === "hard") return 5;
+      return 4;
+    }
+
+    function isSolvedSlide(tiles) {
+      for (let i = 0; i < tiles.length - 1; i++) {
+        if (tiles[i] !== i + 1) return false;
+      }
+      return tiles[tiles.length - 1] === 0;
+    }
+
+    function generateSlidePuzzle() {
+      const size = slideSize();
+      const tiles = Array.from({ length: size * size }, (_, index) => index === size * size - 1 ? 0 : index + 1);
+      state.slide = { size, tiles, moves: 0 };
+
+      let lastEmpty = -1;
+      const shuffleMoves = size === 3 ? 80 : size === 4 ? 180 : 320;
+      for (let i = 0; i < shuffleMoves; i++) {
+        const empty = state.slide.tiles.indexOf(0);
+        const options = slideNeighbors(empty).filter(index => index !== lastEmpty);
+        const next = options[Math.floor(Math.random() * options.length)];
+        lastEmpty = empty;
+        swapSlideTiles(empty, next);
+      }
+
+      state.slide.moves = 0;
+      renderSlide();
+      statusEl.textContent = `완료: ${size} x ${size} 슬라이딩 퍼즐을 생성했습니다.`;
+    }
+
+    function slideNeighbors(index) {
+      const size = state.slide.size;
+      const row = Math.floor(index / size);
+      const col = index % size;
+      const neighbors = [];
+      if (row > 0) neighbors.push(index - size);
+      if (row < size - 1) neighbors.push(index + size);
+      if (col > 0) neighbors.push(index - 1);
+      if (col < size - 1) neighbors.push(index + 1);
+      return neighbors;
+    }
+
+    function swapSlideTiles(a, b) {
+      [state.slide.tiles[a], state.slide.tiles[b]] = [state.slide.tiles[b], state.slide.tiles[a]];
+    }
+
+    function moveSlideTile(index) {
+      if (state.mode !== "slide") return;
+      const empty = state.slide.tiles.indexOf(0);
+      if (!slideNeighbors(empty).includes(index)) return;
+      swapSlideTiles(empty, index);
+      state.slide.moves++;
+      renderSlide();
+      if (isSolvedSlide(state.slide.tiles)) {
+        slideMessageEl.textContent = `완성입니다. ${state.slide.moves}번 만에 해결했습니다.`;
+      } else {
+        slideMessageEl.textContent = `${state.slide.moves}번 이동했습니다.`;
+      }
+    }
+
+    function moveSlideByDirection(dr, dc) {
+      if (state.mode !== "slide") return;
+      const size = state.slide.size;
+      const empty = state.slide.tiles.indexOf(0);
+      const row = Math.floor(empty / size);
+      const col = empty % size;
+      const targetRow = row + dr;
+      const targetCol = col + dc;
+      if (targetRow < 0 || targetCol < 0 || targetRow >= size || targetCol >= size) return;
+      moveSlideTile(targetRow * size + targetCol);
+    }
+
+    function renderSlide() {
+      slideBoardEl.innerHTML = "";
+      slideBoardEl.style.setProperty("--slide-size", state.slide.size);
+      state.slide.tiles.forEach((tile, index) => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = tile === 0 ? "tile empty" : "tile";
+        button.textContent = tile === 0 ? "" : String(tile);
+        button.dataset.index = String(index);
+        button.addEventListener("click", () => moveSlideTile(index));
+        slideBoardEl.appendChild(button);
+      });
+    }
+
     function resetCurrentGame() {
       if (state.mode === "word") {
         state.word.found = new Set();
         wordMessageEl.textContent = "선택을 초기화했습니다.";
         renderWord();
-      } else {
+      } else if (state.mode === "maze") {
         state.maze.player = { row: 1, col: 1 };
         state.maze.visited = new Set(["1,1"]);
         mazeMessageEl.textContent = "미로를 처음 위치로 되돌렸습니다.";
         renderMaze();
       }
+
+      else if (state.mode === "sudoku") {
+        sudokuFrame.src = sudokuFrame.src;
+        statusEl.textContent = "스도쿠 앱을 다시 불러왔습니다.";
+      }
+
+      else if (state.mode === "slide") {
+        generateSlidePuzzle();
+        slideMessageEl.textContent = "새 15 퍼즐을 만들었습니다.";
+      }
     }
 
     function generateCurrentGame() {
       if (state.mode === "word") generateWordPuzzle();
-      else generateMaze();
+      else if (state.mode === "maze") generateMaze();
+      else if (state.mode === "slide") generateSlidePuzzle();
+      else {
+        sudokuFrame.src = "https://cideryman.github.io/sudoku/";
+        statusEl.textContent = "스도쿠 앱을 불러왔습니다.";
+      }
     }
 
     modeButtons.forEach(button => button.addEventListener("click", () => setMode(button.dataset.mode)));
@@ -957,10 +1170,19 @@
       if (event.key === "ArrowDown") { event.preventDefault(); movePlayer(1, 0); }
       if (event.key === "ArrowLeft") { event.preventDefault(); movePlayer(0, -1); }
       if (event.key === "ArrowRight") { event.preventDefault(); movePlayer(0, 1); }
+      if (event.key === "w" || event.key === "W") moveSlideByDirection(1, 0);
+      if (event.key === "s" || event.key === "S") moveSlideByDirection(-1, 0);
+      if (event.key === "a" || event.key === "A") moveSlideByDirection(0, 1);
+      if (event.key === "d" || event.key === "D") moveSlideByDirection(0, -1);
+      if (event.key === "ArrowUp") moveSlideByDirection(1, 0);
+      if (event.key === "ArrowDown") moveSlideByDirection(-1, 0);
+      if (event.key === "ArrowLeft") moveSlideByDirection(0, 1);
+      if (event.key === "ArrowRight") moveSlideByDirection(0, -1);
     });
 
     generateWordPuzzle();
     generateMaze();
+    generateSlidePuzzle();
     setMode("word");
 
     if ("serviceWorker" in navigator && location.protocol !== "file:") {
