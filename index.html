@@ -1177,10 +1177,90 @@
       }
     }
 
+    function printStandalone(title, pageElement) {
+      const popup = window.open("", "_blank");
+      if (!popup) {
+        statusEl.textContent = "팝업이 차단되어 인쇄 창을 열 수 없습니다.";
+        return;
+      }
+
+      popup.document.write(`<!doctype html>
+        <html lang="ko">
+        <head>
+          <meta charset="utf-8">
+          <title>${title}</title>
+          <style>
+            * { box-sizing: border-box; }
+            body { margin: 0; color: #202124; background: #fff; font-family: Arial, "Malgun Gothic", sans-serif; }
+            .print-page { width: 210mm; min-height: 297mm; padding: 14mm; background: #fff; display: grid; align-content: start; gap: 9mm; }
+            .print-title { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; border-bottom: 1px solid #cfd5dc; padding-bottom: 5mm; }
+            .print-title h2 { margin: 0; font-size: 20px; }
+            .print-title span { color: #62666d; font-size: 12px; }
+            .print-layout { display: grid; grid-template-columns: 1fr 48mm; gap: 10mm; align-items: start; }
+            .print-grid { display: grid; grid-template-columns: repeat(var(--size), 1fr); grid-template-rows: repeat(var(--size), 1fr); width: 132mm; height: 132mm; border: 2px solid #111; }
+            .print-grid span { display: grid; place-items: center; border: 0.6px solid #777; font-size: 15px; font-weight: 800; }
+            .print-words { margin: 0; padding-left: 18px; font-size: 14px; font-weight: 700; }
+            .print-maze { display: grid; grid-template-columns: repeat(var(--maze-size), 1fr); grid-template-rows: repeat(var(--maze-size), 1fr); width: 170mm; height: 170mm; border: 2px solid #111; justify-self: center; background: #111; }
+            .print-maze span { background: #111; }
+            .print-maze span.open { background: #fff; }
+            .print-maze span.start { background: #dceeff; }
+            .print-maze span.goal { background: #d8f3dc; }
+            .print-slide { display: grid; grid-template-columns: repeat(var(--slide-size), 1fr); grid-template-rows: repeat(var(--slide-size), 1fr); gap: 3mm; width: 150mm; height: 150mm; justify-self: center; padding: 4mm; border: 2px solid #111; background: #e5ecea; }
+            .print-slide span { display: grid; place-items: center; border: 1px solid #777; background: #fff; font-size: 28px; font-weight: 800; }
+            .print-slide span.empty { visibility: hidden; }
+            @page { size: A4 portrait; margin: 0; }
+            @media print { body { margin: 0; } }
+          </style>
+        </head>
+        <body>
+          <section class="print-page">${pageElement.innerHTML}</section>
+          <script>
+            window.addEventListener("load", () => {
+              setTimeout(() => {
+                window.print();
+                window.close();
+              }, 200);
+            });
+          <\/script>
+        </body>
+        </html>`);
+      popup.document.close();
+    }
+
+    function printCurrentGame() {
+      if (window.matchMedia("(max-width: 768px)").matches) {
+        statusEl.textContent = "모바일에서는 플레이 모드만 지원합니다. 인쇄와 PDF 저장은 PC에서 사용하세요.";
+        return;
+      }
+
+      if (state.mode === "sudoku") {
+        const popup = window.open("https://cideryman.github.io/sudoku/", "_blank");
+        if (!popup) {
+          statusEl.textContent = "팝업이 차단되어 스도쿠 인쇄 창을 열 수 없습니다.";
+          return;
+        }
+        setTimeout(() => {
+          try {
+            popup.focus();
+            popup.print();
+          } catch (error) {
+            statusEl.textContent = "스도쿠 창에서 인쇄 버튼을 눌러주세요.";
+          }
+        }, 1600);
+        return;
+      }
+
+      if (state.mode === "word") printStandalone("단어 찾기 퍼즐", wordPrintPage);
+      if (state.mode === "maze") printStandalone("미로 찾기", mazePrintPage);
+      if (state.mode === "slide") printStandalone("15 퍼즐", slidePrintPage);
+    }
+
     modeButtons.forEach(button => button.addEventListener("click", () => setMode(button.dataset.mode)));
     generateBtn.addEventListener("click", generateCurrentGame);
     resetBtn.addEventListener("click", resetCurrentGame);
     printBtn.addEventListener("click", () => {
+      printCurrentGame();
+      return;
       if (window.matchMedia("(max-width: 768px)").matches) {
         statusEl.textContent = "모바일에서는 플레이 모드만 지원합니다. 인쇄와 PDF 저장은 PC에서 사용하세요.";
         return;
