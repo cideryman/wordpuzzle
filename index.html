@@ -420,6 +420,11 @@
     .print-maze span.open { background: #fff; }
     .print-maze span.start { background: #dceeff; }
     .print-maze span.goal { background: #d8f3dc; }
+    .print-maze svg {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
 
     .print-slide {
       display: grid;
@@ -1014,15 +1019,31 @@
     function renderMazePrint() {
       printMazeEl.innerHTML = "";
       printMazeEl.style.setProperty("--maze-size", state.maze.size);
+      const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+      svg.setAttribute("viewBox", `0 0 ${state.maze.size} ${state.maze.size}`);
+      svg.setAttribute("shape-rendering", "crispEdges");
+      const wall = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+      wall.setAttribute("x", "0");
+      wall.setAttribute("y", "0");
+      wall.setAttribute("width", String(state.maze.size));
+      wall.setAttribute("height", String(state.maze.size));
+      wall.setAttribute("fill", "#111");
+      svg.appendChild(wall);
       for (let row = 0; row < state.maze.size; row++) {
         for (let col = 0; col < state.maze.size; col++) {
-          const cell = document.createElement("span");
-          if (state.maze.grid[row][col] === 0) cell.classList.add("open");
-          if (row === 1 && col === 1) cell.classList.add("start");
-          if (row === state.maze.goal.row && col === state.maze.goal.col) cell.classList.add("goal");
-          printMazeEl.appendChild(cell);
+          if (state.maze.grid[row][col] !== 0) continue;
+          const cell = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+          cell.setAttribute("x", String(col));
+          cell.setAttribute("y", String(row));
+          cell.setAttribute("width", "1");
+          cell.setAttribute("height", "1");
+          cell.setAttribute("fill", "#fff");
+          if (row === 1 && col === 1) cell.setAttribute("fill", "#dceeff");
+          if (row === state.maze.goal.row && col === state.maze.goal.col) cell.setAttribute("fill", "#d8f3dc");
+          svg.appendChild(cell);
         }
       }
+      printMazeEl.appendChild(svg);
       mazePrintMetaEl.textContent = `${state.maze.label || "보통"} / ${state.maze.size} x ${state.maze.size}`;
     }
 
@@ -1200,11 +1221,8 @@
             .print-grid { display: grid; grid-template-columns: repeat(var(--size), 1fr); grid-template-rows: repeat(var(--size), 1fr); width: 132mm; height: 132mm; border: 2px solid #111; }
             .print-grid span { display: grid; place-items: center; border: 0.6px solid #777; font-size: 15px; font-weight: 800; }
             .print-words { margin: 0; padding-left: 18px; font-size: 14px; font-weight: 700; }
-            .print-maze { display: grid; grid-template-columns: repeat(var(--maze-size), 1fr); grid-template-rows: repeat(var(--maze-size), 1fr); width: 170mm; height: 170mm; border: 2px solid #111; justify-self: center; background: #111; }
-            .print-maze span { background: #111; }
-            .print-maze span.open { background: #fff; }
-            .print-maze span.start { background: #dceeff; }
-            .print-maze span.goal { background: #d8f3dc; }
+            .print-maze { width: 170mm; height: 170mm; border: 2px solid #111; justify-self: center; background: #fff; }
+            .print-maze svg { width: 100%; height: 100%; display: block; }
             .print-slide { display: grid; grid-template-columns: repeat(var(--slide-size), 1fr); grid-template-rows: repeat(var(--slide-size), 1fr); gap: 3mm; width: 150mm; height: 150mm; justify-self: center; padding: 4mm; border: 2px solid #111; background: #e5ecea; }
             .print-slide span { display: grid; place-items: center; border: 1px solid #777; background: #fff; font-size: 28px; font-weight: 800; }
             .print-slide span.empty { visibility: hidden; }
@@ -1234,19 +1252,11 @@
       }
 
       if (state.mode === "sudoku") {
-        const popup = window.open("https://cideryman.github.io/sudoku/", "_blank");
+        const popup = window.open("https://cideryman.github.io/sudoku/?print=1&v=autoprint", "_blank");
         if (!popup) {
           statusEl.textContent = "팝업이 차단되어 스도쿠 인쇄 창을 열 수 없습니다.";
           return;
         }
-        setTimeout(() => {
-          try {
-            popup.focus();
-            popup.print();
-          } catch (error) {
-            statusEl.textContent = "스도쿠 창에서 인쇄 버튼을 눌러주세요.";
-          }
-        }, 1600);
         return;
       }
 
