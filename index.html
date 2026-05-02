@@ -125,6 +125,28 @@
       gap: 10px;
     }
 
+    .app-links {
+      display: grid;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .app-links a {
+      display: block;
+      border: 1px solid #c9d1d8;
+      border-radius: 7px;
+      padding: 10px 12px;
+      background: #fff;
+      color: var(--accent-strong);
+      font-size: 14px;
+      font-weight: 700;
+      text-decoration: none;
+    }
+
+    .app-links a:hover {
+      background: #eef7f4;
+    }
+
     button {
       min-height: 42px;
       border-radius: 7px;
@@ -465,6 +487,9 @@
         <button class="primary" type="button" id="generateBtn">새 퍼즐 생성</button>
         <button class="secondary" type="button" id="resetBtn">플레이 초기화</button>
         <button class="secondary" type="button" id="printBtn">인쇄 / PDF 저장</button>
+      </div>
+      <div class="app-links" aria-label="다른 퍼즐 앱">
+        <a href="https://cideryman.github.io/sudoku/" target="_blank" rel="noopener">스도쿠 앱 열기</a>
       </div>
       <p class="mobile-note">모바일에서는 플레이 모드만 표시됩니다. 인쇄와 PDF 저장은 PC에서 사용하세요.</p>
       <p class="status" id="status" aria-live="polite"></p>
