@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Puzzle Maker icon">
+  <rect width="512" height="512" rx="96" fill="#146c5f"/>
+  <rect x="86" y="86" width="154" height="154" rx="18" fill="#fff"/>
+  <rect x="272" y="86" width="154" height="154" rx="18" fill="#fff"/>
+  <rect x="86" y="272" width="154" height="154" rx="18" fill="#fff"/>
+  <rect x="272" y="272" width="154" height="154" rx="18" fill="#fff"/>
+  <g fill="none" stroke="#202124" stroke-width="10" opacity=".85">
+    <path d="M116 138h94M116 178h94M302 138h94M302 178h94"/>
+    <path d="M132 314h62v62h-62zM302 314h94v94h-94z"/>
+    <path d="M318 346h62M350 314v62"/>
+  </g>
+  <circle cx="163" cy="163" r="24" fill="#f2b705"/>
+</svg>

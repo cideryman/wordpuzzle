@@ -1,0 +1,950 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>퍼즐 메이커</title>
+  <meta name="theme-color" content="#146c5f">
+  <meta name="description" content="단어 찾기와 미로 찾기를 만들고 플레이하거나 A4로 인쇄할 수 있는 퍼즐 앱">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <style>
+    :root {
+      --ink: #202124;
+      --muted: #62666d;
+      --line: #d7dbe0;
+      --panel: #fff;
+      --paper: #f4f6f7;
+      --accent: #146c5f;
+      --accent-strong: #0f5148;
+      --found: #d8f3dc;
+      --selected: #fce588;
+      --wall: #202124;
+      --path: #fff;
+      --goal: #e8f7ee;
+      --player: #f2b705;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: var(--paper);
+      font-family: Arial, "Malgun Gothic", sans-serif;
+      line-height: 1.45;
+    }
+
+    .app {
+      min-height: 100vh;
+      display: grid;
+      grid-template-columns: 340px minmax(0, 1fr);
+    }
+
+    .controls {
+      height: 100vh;
+      overflow: auto;
+      position: sticky;
+      top: 0;
+      padding: 24px;
+      background: var(--panel);
+      border-right: 1px solid var(--line);
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      font-size: 24px;
+      line-height: 1.2;
+      letter-spacing: 0;
+    }
+
+    .lede, .hint, .mobile-note, .status {
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .lede { margin: 0 0 22px; }
+    .status { min-height: 22px; margin: 12px 0 0; }
+    .mobile-note { display: none; }
+
+    .group { margin-bottom: 18px; }
+
+    label, .label {
+      display: block;
+      margin-bottom: 8px;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    textarea, select {
+      width: 100%;
+      border: 1px solid #b8c0ca;
+      border-radius: 6px;
+      padding: 9px 10px;
+      background: #fff;
+      color: var(--ink);
+      font: inherit;
+    }
+
+    textarea {
+      min-height: 160px;
+      resize: vertical;
+    }
+
+    .mode-tabs {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      border: 1px solid #b8c0ca;
+      border-radius: 7px;
+      overflow: hidden;
+      background: #fff;
+    }
+
+    .mode-tabs button {
+      min-height: 42px;
+      border: 0;
+      border-right: 1px solid #b8c0ca;
+      border-radius: 0;
+      background: #fff;
+      color: var(--ink);
+    }
+
+    .mode-tabs button:last-child { border-right: 0; }
+    .mode-tabs button[aria-pressed="true"] { background: var(--accent); color: #fff; }
+
+    .row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .buttons {
+      display: grid;
+      gap: 10px;
+    }
+
+    button {
+      min-height: 42px;
+      border-radius: 7px;
+      border: 1px solid transparent;
+      padding: 8px 12px;
+      font: inherit;
+      font-weight: 700;
+      cursor: pointer;
+      touch-action: manipulation;
+    }
+
+    .primary { background: var(--accent); color: #fff; }
+    .primary:hover { background: var(--accent-strong); }
+    .secondary { border-color: #c9d1d8; background: #eef2f5; color: var(--ink); }
+
+    .workspace {
+      min-width: 0;
+      padding: 28px;
+    }
+
+    .play-panel {
+      max-width: 960px;
+      margin: 0 auto 28px;
+      padding: 20px;
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: 0 6px 18px rgba(15, 23, 42, 0.08);
+    }
+
+    .play-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+
+    .play-head h2 {
+      margin: 0 0 4px;
+      font-size: 20px;
+      letter-spacing: 0;
+    }
+
+    .word-board {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 220px;
+      gap: 22px;
+      align-items: start;
+    }
+
+    .word-grid {
+      width: min(100%, 620px);
+      aspect-ratio: 1;
+      display: grid;
+      grid-template-columns: repeat(var(--size), 1fr);
+      grid-template-rows: repeat(var(--size), 1fr);
+      border: 3px solid #111;
+      background: #fff;
+      user-select: none;
+      touch-action: none;
+    }
+
+    .cell {
+      display: grid;
+      place-items: center;
+      border: 1px solid #c8cdd2;
+      background: #fff;
+      color: #111;
+      font-size: clamp(16px, 3.1vw, 26px);
+      font-weight: 800;
+      line-height: 1;
+    }
+
+    .cell.selected { background: var(--selected); }
+    .cell.found { background: var(--found); color: #0f5132; }
+
+    .word-list {
+      margin: 0;
+      padding: 0;
+      list-style: none;
+      display: grid;
+      gap: 8px;
+    }
+
+    .word-list li {
+      min-height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      border-bottom: 1px solid #e3e7eb;
+      font-weight: 700;
+    }
+
+    .word-list li.found {
+      color: #0f6b3f;
+      text-decoration: line-through;
+    }
+
+    .maze-wrap {
+      display: grid;
+      gap: 14px;
+      justify-items: center;
+    }
+
+    .maze {
+      width: min(86vw, 650px);
+      aspect-ratio: 1;
+      display: grid;
+      grid-template-columns: repeat(var(--maze-size), 1fr);
+      grid-template-rows: repeat(var(--maze-size), 1fr);
+      border: 3px solid #111;
+      background: var(--wall);
+    }
+
+    .maze-cell { background: var(--wall); position: relative; }
+    .maze-cell.open { background: var(--path); }
+    .maze-cell.visited { background: #eef7ff; }
+    .maze-cell.start { background: #e8f2ff; }
+    .maze-cell.goal { background: var(--goal); }
+
+    .maze-cell.player::after {
+      content: "";
+      position: absolute;
+      inset: 18%;
+      border-radius: 50%;
+      background: var(--player);
+      box-shadow: 0 0 0 2px rgba(0,0,0,.16);
+    }
+
+    .maze-cell.goal::before {
+      content: "";
+      position: absolute;
+      inset: 28%;
+      border-radius: 2px;
+      background: #1f9d55;
+    }
+
+    .maze-controls {
+      display: grid;
+      grid-template-columns: repeat(3, 58px);
+      gap: 8px;
+      justify-content: center;
+    }
+
+    .maze-controls button {
+      min-height: 48px;
+      border-color: #c9d1d8;
+      background: #fff;
+      font-size: 20px;
+    }
+
+    .maze-controls .empty { visibility: hidden; }
+
+    .print-page {
+      width: 210mm;
+      min-height: 297mm;
+      margin: 0 auto 28px;
+      padding: 14mm;
+      background: #fff;
+      box-shadow: 0 10px 28px rgba(15, 23, 42, 0.16);
+      display: grid;
+      align-content: start;
+      gap: 9mm;
+    }
+
+    .print-title {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: baseline;
+      border-bottom: 1px solid #cfd5dc;
+      padding-bottom: 5mm;
+    }
+
+    .print-title h2 { margin: 0; font-size: 20px; }
+    .print-title span { color: var(--muted); font-size: 12px; }
+
+    .print-layout {
+      display: grid;
+      grid-template-columns: 1fr 48mm;
+      gap: 10mm;
+      align-items: start;
+    }
+
+    .print-grid {
+      display: grid;
+      grid-template-columns: repeat(var(--size), 1fr);
+      grid-template-rows: repeat(var(--size), 1fr);
+      width: 132mm;
+      height: 132mm;
+      border: 2px solid #111;
+    }
+
+    .print-grid span {
+      display: grid;
+      place-items: center;
+      border: 0.6px solid #777;
+      font-size: 15px;
+      font-weight: 800;
+    }
+
+    .print-words {
+      margin: 0;
+      padding-left: 18px;
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    .print-maze {
+      display: grid;
+      grid-template-columns: repeat(var(--maze-size), 1fr);
+      grid-template-rows: repeat(var(--maze-size), 1fr);
+      width: 170mm;
+      height: 170mm;
+      border: 2px solid #111;
+      justify-self: center;
+      background: #111;
+    }
+
+    .print-maze span { background: #111; }
+    .print-maze span.open { background: #fff; }
+    .print-maze span.start { background: #dceeff; }
+    .print-maze span.goal { background: #d8f3dc; }
+
+    .hidden { display: none !important; }
+
+    @media (max-width: 980px) {
+      .app { grid-template-columns: 1fr; }
+      .controls {
+        height: auto;
+        position: static;
+        border-right: 0;
+        border-bottom: 1px solid var(--line);
+      }
+    }
+
+    @media (max-width: 768px) {
+      body { background: #fff; }
+      .controls { padding: 16px; }
+      .row { grid-template-columns: 1fr; }
+      #printBtn, .print-page { display: none; }
+      .mobile-note { display: block; }
+      .workspace { padding: 0 12px 20px; }
+      .play-panel {
+        margin: 0;
+        padding: 12px 0 0;
+        border: 0;
+        box-shadow: none;
+      }
+      .play-head { flex-direction: column; }
+      .word-board { grid-template-columns: 1fr; }
+      .word-grid { width: min(94vw, 560px); justify-self: center; }
+      .maze { width: min(94vw, 560px); }
+    }
+
+    @page { size: A4 portrait; margin: 0; }
+
+    @media print {
+      body { background: #fff; }
+      .controls, .play-panel { display: none; }
+      .app { display: block; }
+      .workspace { padding: 0; }
+      .print-page {
+        margin: 0;
+        box-shadow: none;
+        page-break-after: always;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <aside class="controls">
+      <h1>퍼즐 메이커</h1>
+      <p class="lede">단어 찾기와 미로 찾기를 만들고, 화면에서 풀거나 A4로 인쇄할 수 있습니다.</p>
+
+      <div class="group">
+        <span class="label">게임 모드</span>
+        <div class="mode-tabs">
+          <button type="button" data-mode="word" aria-pressed="true">단어 찾기</button>
+          <button type="button" data-mode="maze">미로 찾기</button>
+        </div>
+      </div>
+
+      <div id="wordSettings">
+        <div class="group">
+          <label for="words">단어 목록</label>
+          <textarea id="words">사과
+바나나
+학교
+친구
+바다
+구름
+책상
+연필
+음악
+기차
+나무
+하늘</textarea>
+        </div>
+
+        <div class="row group">
+          <div>
+            <label for="size">격자 크기</label>
+            <select id="size">
+              <option value="10">10 x 10</option>
+              <option value="12" selected>12 x 12</option>
+              <option value="14">14 x 14</option>
+              <option value="16">16 x 16</option>
+            </select>
+          </div>
+          <div>
+            <label for="direction">방향</label>
+            <select id="direction">
+              <option value="easy">가로/세로</option>
+              <option value="normal" selected>가로/세로/대각선</option>
+              <option value="hard">역방향 포함</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div id="mazeSettings" class="hidden">
+        <div class="group">
+          <label for="mazeDifficulty">미로 난이도</label>
+          <select id="mazeDifficulty">
+            <option value="easy">쉬움 - 짧은 미로</option>
+            <option value="medium" selected>보통 - 기본 미로</option>
+            <option value="hard">어려움 - 큰 미로</option>
+            <option value="very-hard">매우 어려움 - 거대한 미로</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="buttons">
+        <button class="primary" type="button" id="generateBtn">새 퍼즐 생성</button>
+        <button class="secondary" type="button" id="resetBtn">플레이 초기화</button>
+        <button class="secondary" type="button" id="printBtn">인쇄 / PDF 저장</button>
+      </div>
+      <p class="mobile-note">모바일에서는 플레이 모드만 표시됩니다. 인쇄와 PDF 저장은 PC에서 사용하세요.</p>
+      <p class="status" id="status" aria-live="polite"></p>
+    </aside>
+
+    <section class="workspace">
+      <section class="play-panel" id="wordPanel">
+        <div class="play-head">
+          <div>
+            <h2>단어 찾기</h2>
+            <p class="hint" id="wordMessage">단어의 첫 글자부터 끝 글자까지 드래그하세요.</p>
+          </div>
+        </div>
+        <div class="word-board">
+          <div class="word-grid" id="grid" aria-label="단어 찾기 격자"></div>
+          <ul class="word-list" id="wordList"></ul>
+        </div>
+      </section>
+
+      <section class="play-panel hidden" id="mazePanel">
+        <div class="play-head">
+          <div>
+            <h2>미로 찾기</h2>
+            <p class="hint" id="mazeMessage">노란 말을 출구까지 이동하세요. 방향키도 사용할 수 있습니다.</p>
+          </div>
+        </div>
+        <div class="maze-wrap">
+          <div class="maze" id="maze" aria-label="미로 보드"></div>
+          <div class="maze-controls" aria-label="미로 이동 버튼">
+            <span class="empty"></span>
+            <button type="button" data-move="-1,0">↑</button>
+            <span class="empty"></span>
+            <button type="button" data-move="0,-1">←</button>
+            <button type="button" data-move="1,0">↓</button>
+            <button type="button" data-move="0,1">→</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="print-page" id="wordPrintPage">
+        <div class="print-title">
+          <h2>단어 찾기 퍼즐</h2>
+          <span id="printMeta"></span>
+        </div>
+        <div class="print-layout">
+          <div class="print-grid" id="printGrid"></div>
+          <ol class="print-words" id="printWords"></ol>
+        </div>
+      </section>
+
+      <section class="print-page hidden" id="mazePrintPage">
+        <div class="print-title">
+          <h2>미로 찾기</h2>
+          <span id="mazePrintMeta"></span>
+        </div>
+        <div class="print-maze" id="printMaze"></div>
+      </section>
+    </section>
+  </main>
+
+  <script>
+    const alphabet = "가나다라마바사아자차카타파하거너더러머버서어저처커터퍼허고노도로모보소오조초코토포호구누두루무부수우주추쿠투푸후그느드르므브스으즈츠크트프흐기니디리미비시이지치키티피히";
+    const directionSets = {
+      easy: [[0, 1], [1, 0]],
+      normal: [[0, 1], [1, 0], [1, 1], [1, -1]],
+      hard: [[0, 1], [1, 0], [1, 1], [1, -1], [0, -1], [-1, 0], [-1, -1], [-1, 1]]
+    };
+    const mazeLevels = {
+      easy: { label: "쉬움", size: 15 },
+      medium: { label: "보통", size: 23 },
+      hard: { label: "어려움", size: 35 },
+      "very-hard": { label: "매우 어려움", size: 100 }
+    };
+
+    const state = {
+      mode: "word",
+      word: { size: 12, words: [], grid: [], placements: [], found: new Set(), dragStart: null, dragPath: [] },
+      maze: { size: 21, grid: [], player: { row: 1, col: 1 }, goal: { row: 19, col: 19 }, visited: new Set() }
+    };
+
+    const modeButtons = document.querySelectorAll("[data-mode]");
+    const wordSettings = document.getElementById("wordSettings");
+    const mazeSettings = document.getElementById("mazeSettings");
+    const wordsEl = document.getElementById("words");
+    const sizeEl = document.getElementById("size");
+    const directionEl = document.getElementById("direction");
+    const mazeDifficultyEl = document.getElementById("mazeDifficulty");
+    const generateBtn = document.getElementById("generateBtn");
+    const resetBtn = document.getElementById("resetBtn");
+    const printBtn = document.getElementById("printBtn");
+    const statusEl = document.getElementById("status");
+    const wordMessageEl = document.getElementById("wordMessage");
+    const mazeMessageEl = document.getElementById("mazeMessage");
+    const wordPanel = document.getElementById("wordPanel");
+    const mazePanel = document.getElementById("mazePanel");
+    const wordPrintPage = document.getElementById("wordPrintPage");
+    const mazePrintPage = document.getElementById("mazePrintPage");
+    const gridEl = document.getElementById("grid");
+    const wordListEl = document.getElementById("wordList");
+    const printGridEl = document.getElementById("printGrid");
+    const printWordsEl = document.getElementById("printWords");
+    const printMetaEl = document.getElementById("printMeta");
+    const mazeEl = document.getElementById("maze");
+    const printMazeEl = document.getElementById("printMaze");
+    const mazePrintMetaEl = document.getElementById("mazePrintMeta");
+
+    function shuffle(items) {
+      const copy = items.slice();
+      for (let i = copy.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [copy[i], copy[j]] = [copy[j], copy[i]];
+      }
+      return copy;
+    }
+
+    function setMode(mode) {
+      state.mode = mode;
+      modeButtons.forEach(button => button.setAttribute("aria-pressed", String(button.dataset.mode === mode)));
+      wordSettings.classList.toggle("hidden", mode !== "word");
+      mazeSettings.classList.toggle("hidden", mode !== "maze");
+      wordPanel.classList.toggle("hidden", mode !== "word");
+      mazePanel.classList.toggle("hidden", mode !== "maze");
+      wordPrintPage.classList.toggle("hidden", mode !== "word");
+      mazePrintPage.classList.toggle("hidden", mode !== "maze");
+      statusEl.textContent = mode === "word" ? "단어 찾기 모드입니다." : "미로 찾기 모드입니다.";
+    }
+
+    function cleanWord(word) {
+      return word.replace(/\s/g, "").toUpperCase();
+    }
+
+    function parseWords() {
+      const seen = new Set();
+      return wordsEl.value.split(/\n|,|;/).map(cleanWord).filter(word => word.length >= 2).filter(word => {
+        if (seen.has(word)) return false;
+        seen.add(word);
+        return true;
+      });
+    }
+
+    function emptyWordGrid(size) {
+      return Array.from({ length: size }, () => Array(size).fill(""));
+    }
+
+    function randomLetter() {
+      return alphabet[Math.floor(Math.random() * alphabet.length)];
+    }
+
+    function canPlaceWord(grid, word, row, col, rowStep, colStep) {
+      const size = grid.length;
+      for (let i = 0; i < word.length; i++) {
+        const r = row + rowStep * i;
+        const c = col + colStep * i;
+        if (r < 0 || c < 0 || r >= size || c >= size) return false;
+        if (grid[r][c] && grid[r][c] !== word[i]) return false;
+      }
+      return true;
+    }
+
+    function placeWord(grid, word, directions) {
+      const size = grid.length;
+      const attempts = [];
+      for (const [rowStep, colStep] of shuffle(directions)) {
+        for (let row = 0; row < size; row++) {
+          for (let col = 0; col < size; col++) attempts.push({ row, col, rowStep, colStep });
+        }
+      }
+      for (const attempt of shuffle(attempts)) {
+        if (!canPlaceWord(grid, word, attempt.row, attempt.col, attempt.rowStep, attempt.colStep)) continue;
+        const cells = [];
+        for (let i = 0; i < word.length; i++) {
+          const row = attempt.row + attempt.rowStep * i;
+          const col = attempt.col + attempt.colStep * i;
+          grid[row][col] = word[i];
+          cells.push(`${row},${col}`);
+        }
+        return { word, cells };
+      }
+      return null;
+    }
+
+    function generateWordPuzzle() {
+      const size = Number(sizeEl.value);
+      const words = parseWords().filter(word => word.length <= size).sort((a, b) => b.length - a.length);
+      if (words.length === 0) {
+        statusEl.textContent = "격자 크기에 들어갈 단어를 1개 이상 입력하세요.";
+        return;
+      }
+
+      const directions = directionSets[directionEl.value];
+      let best = null;
+      for (let round = 0; round < 40; round++) {
+        const grid = emptyWordGrid(size);
+        const placements = [];
+        for (const word of words) {
+          const placement = placeWord(grid, word, directions);
+          if (placement) placements.push(placement);
+        }
+        if (!best || placements.length > best.placements.length) best = { grid, placements };
+        if (placements.length === words.length) break;
+      }
+
+      for (let row = 0; row < size; row++) {
+        for (let col = 0; col < size; col++) {
+          if (!best.grid[row][col]) best.grid[row][col] = randomLetter();
+        }
+      }
+
+      state.word = { size, words: best.placements.map(item => item.word), grid: best.grid, placements: best.placements, found: new Set(), dragStart: null, dragPath: [] };
+      renderWord();
+      statusEl.textContent = `완료: ${state.word.words.length}개 단어를 숨겼습니다.`;
+      if (state.word.words.length < words.length) statusEl.textContent += ` (${words.length - state.word.words.length}개 제외)`;
+    }
+
+    function renderWord() {
+      renderWordGrid();
+      renderWordList();
+      renderWordPrint();
+    }
+
+    function renderWordGrid() {
+      gridEl.innerHTML = "";
+      gridEl.style.setProperty("--size", state.word.size);
+      state.word.grid.forEach((line, row) => {
+        line.forEach((letter, col) => {
+          const cell = document.createElement("button");
+          cell.type = "button";
+          cell.className = "cell";
+          cell.textContent = letter;
+          cell.dataset.row = String(row);
+          cell.dataset.col = String(col);
+          gridEl.appendChild(cell);
+        });
+      });
+      markFoundCells();
+    }
+
+    function renderWordList() {
+      wordListEl.innerHTML = "";
+      state.word.words.forEach(word => {
+        const li = document.createElement("li");
+        li.className = state.word.found.has(word) ? "found" : "";
+        li.innerHTML = `<span>${word}</span><span>${state.word.found.has(word) ? "완료" : ""}</span>`;
+        wordListEl.appendChild(li);
+      });
+    }
+
+    function renderWordPrint() {
+      printGridEl.innerHTML = "";
+      printGridEl.style.setProperty("--size", state.word.size);
+      state.word.grid.flat().forEach(letter => {
+        const span = document.createElement("span");
+        span.textContent = letter;
+        printGridEl.appendChild(span);
+      });
+      printWordsEl.innerHTML = "";
+      state.word.words.forEach(word => {
+        const li = document.createElement("li");
+        li.textContent = word;
+        printWordsEl.appendChild(li);
+      });
+      printMetaEl.textContent = `${state.word.size} x ${state.word.size} / ${state.word.words.length}개 단어`;
+    }
+
+    function cellFromEvent(event) {
+      const target = document.elementFromPoint(event.clientX, event.clientY);
+      return target?.closest(".cell") || null;
+    }
+
+    function coords(cell) {
+      return { row: Number(cell.dataset.row), col: Number(cell.dataset.col) };
+    }
+
+    function buildPath(start, end) {
+      const rowDiff = end.row - start.row;
+      const colDiff = end.col - start.col;
+      const rowStep = Math.sign(rowDiff);
+      const colStep = Math.sign(colDiff);
+      if (!(rowDiff === 0 || colDiff === 0 || Math.abs(rowDiff) === Math.abs(colDiff))) return [];
+      const length = Math.max(Math.abs(rowDiff), Math.abs(colDiff)) + 1;
+      return Array.from({ length }, (_, index) => ({ row: start.row + rowStep * index, col: start.col + colStep * index }));
+    }
+
+    function updateWordSelection(path) {
+      gridEl.querySelectorAll(".cell.selected").forEach(cell => cell.classList.remove("selected"));
+      state.word.dragPath = path;
+      path.forEach(({ row, col }) => gridEl.querySelector(`.cell[data-row="${row}"][data-col="${col}"]`)?.classList.add("selected"));
+    }
+
+    function selectedWord(path) {
+      return path.map(({ row, col }) => state.word.grid[row][col]).join("");
+    }
+
+    function markFoundCells() {
+      gridEl.querySelectorAll(".cell.found").forEach(cell => cell.classList.remove("found"));
+      state.word.placements.forEach(placement => {
+        if (!state.word.found.has(placement.word)) return;
+        placement.cells.forEach(key => {
+          const [row, col] = key.split(",");
+          gridEl.querySelector(`.cell[data-row="${row}"][data-col="${col}"]`)?.classList.add("found");
+        });
+      });
+    }
+
+    function finishWordSelection() {
+      if (state.word.dragPath.length < 2) {
+        updateWordSelection([]);
+        return;
+      }
+      const word = selectedWord(state.word.dragPath);
+      const reversed = word.split("").reverse().join("");
+      const match = state.word.placements.find(item => !state.word.found.has(item.word) && (item.word === word || item.word === reversed));
+      if (match) {
+        state.word.found.add(match.word);
+        wordMessageEl.textContent = `${match.word} 찾았습니다.`;
+        updateWordSelection([]);
+        renderWordList();
+        markFoundCells();
+        if (state.word.found.size === state.word.words.length) wordMessageEl.textContent = "완성입니다. 모든 단어를 찾았습니다.";
+      } else {
+        wordMessageEl.textContent = "목록에 있는 단어가 아닙니다.";
+        updateWordSelection([]);
+      }
+    }
+
+    function generateMaze() {
+      const level = mazeLevels[mazeDifficultyEl.value];
+      const size = level.size;
+      const grid = Array.from({ length: size }, () => Array(size).fill(1));
+      const start = { row: 1, col: 1 };
+      const goalIndex = size % 2 === 0 ? size - 3 : size - 2;
+      const exitIndex = size - 2;
+      const goal = { row: exitIndex, col: exitIndex };
+      grid[start.row][start.col] = 0;
+
+      function carve(row, col) {
+        const dirs = shuffle([[2, 0], [-2, 0], [0, 2], [0, -2]]);
+        for (const [dr, dc] of dirs) {
+          const nr = row + dr;
+          const nc = col + dc;
+          if (nr <= 0 || nc <= 0 || nr >= size - 1 || nc >= size - 1 || grid[nr][nc] === 0) continue;
+          grid[row + dr / 2][col + dc / 2] = 0;
+          grid[nr][nc] = 0;
+          carve(nr, nc);
+        }
+      }
+
+      carve(start.row, start.col);
+      grid[goalIndex][goalIndex] = 0;
+      grid[goalIndex][exitIndex] = 0;
+      grid[exitIndex][exitIndex] = 0;
+      state.maze = { size, grid, player: { ...start }, goal, visited: new Set([`${start.row},${start.col}`]), label: level.label };
+      renderMaze();
+      statusEl.textContent = `완료: ${level.label} 미로를 생성했습니다.`;
+    }
+
+    function renderMaze() {
+      mazeEl.innerHTML = "";
+      mazeEl.style.setProperty("--maze-size", state.maze.size);
+      for (let row = 0; row < state.maze.size; row++) {
+        for (let col = 0; col < state.maze.size; col++) {
+          const cell = document.createElement("span");
+          const key = `${row},${col}`;
+          cell.className = "maze-cell";
+          if (state.maze.grid[row][col] === 0) cell.classList.add("open");
+          if (state.maze.visited.has(key)) cell.classList.add("visited");
+          if (row === 1 && col === 1) cell.classList.add("start");
+          if (row === state.maze.goal.row && col === state.maze.goal.col) cell.classList.add("goal");
+          if (row === state.maze.player.row && col === state.maze.player.col) cell.classList.add("player");
+          mazeEl.appendChild(cell);
+        }
+      }
+      renderMazePrint();
+    }
+
+    function renderMazePrint() {
+      printMazeEl.innerHTML = "";
+      printMazeEl.style.setProperty("--maze-size", state.maze.size);
+      for (let row = 0; row < state.maze.size; row++) {
+        for (let col = 0; col < state.maze.size; col++) {
+          const cell = document.createElement("span");
+          if (state.maze.grid[row][col] === 0) cell.classList.add("open");
+          if (row === 1 && col === 1) cell.classList.add("start");
+          if (row === state.maze.goal.row && col === state.maze.goal.col) cell.classList.add("goal");
+          printMazeEl.appendChild(cell);
+        }
+      }
+      mazePrintMetaEl.textContent = `${state.maze.label || "보통"} / ${state.maze.size} x ${state.maze.size}`;
+    }
+
+    function movePlayer(dr, dc) {
+      if (state.mode !== "maze") return;
+      const next = { row: state.maze.player.row + dr, col: state.maze.player.col + dc };
+      if (next.row < 0 || next.col < 0 || next.row >= state.maze.size || next.col >= state.maze.size) return;
+      if (state.maze.grid[next.row][next.col] === 1) return;
+      state.maze.player = next;
+      state.maze.visited.add(`${next.row},${next.col}`);
+      if (next.row === state.maze.goal.row && next.col === state.maze.goal.col) {
+        mazeMessageEl.textContent = "성공입니다. 출구에 도착했습니다.";
+      } else {
+        mazeMessageEl.textContent = "좋아요. 계속 출구를 찾아보세요.";
+      }
+      renderMaze();
+    }
+
+    function resetCurrentGame() {
+      if (state.mode === "word") {
+        state.word.found = new Set();
+        wordMessageEl.textContent = "선택을 초기화했습니다.";
+        renderWord();
+      } else {
+        state.maze.player = { row: 1, col: 1 };
+        state.maze.visited = new Set(["1,1"]);
+        mazeMessageEl.textContent = "미로를 처음 위치로 되돌렸습니다.";
+        renderMaze();
+      }
+    }
+
+    function generateCurrentGame() {
+      if (state.mode === "word") generateWordPuzzle();
+      else generateMaze();
+    }
+
+    modeButtons.forEach(button => button.addEventListener("click", () => setMode(button.dataset.mode)));
+    generateBtn.addEventListener("click", generateCurrentGame);
+    resetBtn.addEventListener("click", resetCurrentGame);
+    printBtn.addEventListener("click", () => {
+      if (window.matchMedia("(max-width: 768px)").matches) {
+        statusEl.textContent = "모바일에서는 플레이 모드만 지원합니다. 인쇄와 PDF 저장은 PC에서 사용하세요.";
+        return;
+      }
+      window.print();
+    });
+
+    gridEl.addEventListener("pointerdown", event => {
+      const cell = event.target.closest(".cell");
+      if (!cell) return;
+      gridEl.setPointerCapture(event.pointerId);
+      state.word.dragStart = coords(cell);
+      updateWordSelection([state.word.dragStart]);
+    });
+    gridEl.addEventListener("pointermove", event => {
+      if (!state.word.dragStart) return;
+      const cell = cellFromEvent(event);
+      if (!cell) return;
+      const path = buildPath(state.word.dragStart, coords(cell));
+      if (path.length > 0) updateWordSelection(path);
+    });
+    gridEl.addEventListener("pointerup", event => {
+      if (!state.word.dragStart) return;
+      gridEl.releasePointerCapture(event.pointerId);
+      finishWordSelection();
+      state.word.dragStart = null;
+    });
+
+    document.querySelectorAll("[data-move]").forEach(button => {
+      button.addEventListener("click", () => {
+        const [dr, dc] = button.dataset.move.split(",").map(Number);
+        movePlayer(dr, dc);
+      });
+    });
+
+    document.addEventListener("keydown", event => {
+      if (event.key === "ArrowUp") { event.preventDefault(); movePlayer(-1, 0); }
+      if (event.key === "ArrowDown") { event.preventDefault(); movePlayer(1, 0); }
+      if (event.key === "ArrowLeft") { event.preventDefault(); movePlayer(0, -1); }
+      if (event.key === "ArrowRight") { event.preventDefault(); movePlayer(0, 1); }
+    });
+
+    generateWordPuzzle();
+    generateMaze();
+    setMode("word");
+
+    if ("serviceWorker" in navigator && location.protocol !== "file:") {
+      window.addEventListener("load", () => {
+        navigator.serviceWorker.register("./sw.js").catch(error => {
+          console.warn("Service worker registration failed", error);
+        });
+      });
+    }
+  </script>
+</body>
+</html>
