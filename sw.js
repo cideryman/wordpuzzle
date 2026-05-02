@@ -1,4 +1,4 @@
-const CACHE_NAME = "wordpuzzle-pwa-v6";
+const CACHE_NAME = "wordpuzzle-pwa-v7";
 const APP_SHELL = [
   "./",
   "./index.html",

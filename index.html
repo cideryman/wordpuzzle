@@ -1252,7 +1252,7 @@
       }
 
       if (state.mode === "sudoku") {
-        const popup = window.open("https://cideryman.github.io/sudoku/?print=1&v=autoprint", "_blank");
+        const popup = window.open("https://cideryman.github.io/sudoku/index.html?print=1&v=standalone-print", "_blank");
         if (!popup) {
           statusEl.textContent = "팝업이 차단되어 스도쿠 인쇄 창을 열 수 없습니다.";
           return;
