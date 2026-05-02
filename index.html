@@ -421,6 +421,32 @@
     .print-maze span.start { background: #dceeff; }
     .print-maze span.goal { background: #d8f3dc; }
 
+    .print-slide {
+      display: grid;
+      grid-template-columns: repeat(var(--slide-size), 1fr);
+      grid-template-rows: repeat(var(--slide-size), 1fr);
+      gap: 3mm;
+      width: 150mm;
+      height: 150mm;
+      justify-self: center;
+      padding: 4mm;
+      border: 2px solid #111;
+      background: #e5ecea;
+    }
+
+    .print-slide span {
+      display: grid;
+      place-items: center;
+      border: 1px solid #777;
+      background: #fff;
+      font-size: 28px;
+      font-weight: 800;
+    }
+
+    .print-slide span.empty {
+      visibility: hidden;
+    }
+
     .hidden { display: none !important; }
 
     @media (max-width: 980px) {
@@ -641,6 +667,14 @@
         </div>
         <div class="print-maze" id="printMaze"></div>
       </section>
+
+      <section class="print-page hidden" id="slidePrintPage">
+        <div class="print-title">
+          <h2>15 퍼즐</h2>
+          <span id="slidePrintMeta"></span>
+        </div>
+        <div class="print-slide" id="printSlide"></div>
+      </section>
     </section>
   </main>
 
@@ -687,6 +721,7 @@
     const slidePanel = document.getElementById("slidePanel");
     const wordPrintPage = document.getElementById("wordPrintPage");
     const mazePrintPage = document.getElementById("mazePrintPage");
+    const slidePrintPage = document.getElementById("slidePrintPage");
     const gridEl = document.getElementById("grid");
     const wordListEl = document.getElementById("wordList");
     const printGridEl = document.getElementById("printGrid");
@@ -695,6 +730,8 @@
     const mazeEl = document.getElementById("maze");
     const printMazeEl = document.getElementById("printMaze");
     const mazePrintMetaEl = document.getElementById("mazePrintMeta");
+    const printSlideEl = document.getElementById("printSlide");
+    const slidePrintMetaEl = document.getElementById("slidePrintMeta");
     const sudokuFrame = document.getElementById("sudokuFrame");
     const slideBoardEl = document.getElementById("slideBoard");
     const slideMessageEl = document.getElementById("slideMessage");
@@ -721,6 +758,7 @@
       slidePanel.classList.toggle("hidden", mode !== "slide");
       wordPrintPage.classList.toggle("hidden", mode !== "word");
       mazePrintPage.classList.toggle("hidden", mode !== "maze");
+      slidePrintPage.classList.toggle("hidden", mode !== "slide");
       const labels = { word: "단어 찾기", maze: "미로 찾기", sudoku: "스도쿠", slide: "15 퍼즐" };
       statusEl.textContent = `${labels[mode]} 모드입니다.`;
     }
@@ -1091,6 +1129,19 @@
         button.addEventListener("click", () => moveSlideTile(index));
         slideBoardEl.appendChild(button);
       });
+      renderSlidePrint();
+    }
+
+    function renderSlidePrint() {
+      printSlideEl.innerHTML = "";
+      printSlideEl.style.setProperty("--slide-size", state.slide.size);
+      state.slide.tiles.forEach(tile => {
+        const span = document.createElement("span");
+        span.className = tile === 0 ? "empty" : "";
+        span.textContent = tile === 0 ? "" : String(tile);
+        printSlideEl.appendChild(span);
+      });
+      slidePrintMetaEl.textContent = `${state.slide.size} x ${state.slide.size} / ${state.slide.moves}번 이동`;
     }
 
     function resetCurrentGame() {
@@ -1132,6 +1183,10 @@
     printBtn.addEventListener("click", () => {
       if (window.matchMedia("(max-width: 768px)").matches) {
         statusEl.textContent = "모바일에서는 플레이 모드만 지원합니다. 인쇄와 PDF 저장은 PC에서 사용하세요.";
+        return;
+      }
+      if (state.mode === "sudoku") {
+        sudokuFrame.contentWindow?.print();
         return;
       }
       window.print();
@@ -1187,7 +1242,9 @@
 
     if ("serviceWorker" in navigator && location.protocol !== "file:") {
       window.addEventListener("load", () => {
-        navigator.serviceWorker.register("./sw.js").catch(error => {
+        navigator.serviceWorker.register("./sw.js").then(registration => {
+          registration.update();
+        }).catch(error => {
           console.warn("Service worker registration failed", error);
         });
       });
