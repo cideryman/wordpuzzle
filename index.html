@@ -531,6 +531,7 @@
 기차
 나무
 하늘</textarea>
+          <button class="secondary" type="button" id="autoWordsBtn" style="width: 100%; margin-top: 10px;">단어 목록 자동 생성</button>
         </div>
 
         <div class="row group">
@@ -690,6 +691,14 @@
       normal: [[0, 1], [1, 0], [1, 1], [1, -1]],
       hard: [[0, 1], [1, 0], [1, 1], [1, -1], [0, -1], [-1, 0], [-1, -1], [-1, 1]]
     };
+    const wordBanks = [
+      ["사과", "바나나", "딸기", "포도", "수박", "복숭아", "자두", "참외", "오렌지", "레몬", "망고", "키위"],
+      ["학교", "친구", "선생님", "교실", "칠판", "책상", "연필", "공책", "도서관", "운동장", "숙제", "시험"],
+      ["바다", "하늘", "구름", "산책", "나무", "강물", "바람", "햇살", "달빛", "별빛", "모래", "파도"],
+      ["기차", "버스", "자동차", "자전거", "비행기", "지하철", "정류장", "공항", "도로", "터널", "다리", "항구"],
+      ["음악", "피아노", "기타", "드럼", "노래", "리듬", "무대", "공연", "박수", "연습", "멜로디", "화음"],
+      ["컴퓨터", "마우스", "키보드", "화면", "인터넷", "프로그램", "게임", "파일", "사진", "영상", "코딩", "로봇"]
+    ];
     const mazeLevels = {
       easy: { label: "쉬움", size: 15 },
       medium: { label: "보통", size: 23 },
@@ -710,6 +719,7 @@
     const sudokuSettings = document.getElementById("sudokuSettings");
     const slideSettings = document.getElementById("slideSettings");
     const wordsEl = document.getElementById("words");
+    const autoWordsBtn = document.getElementById("autoWordsBtn");
     const sizeEl = document.getElementById("size");
     const directionEl = document.getElementById("direction");
     const mazeDifficultyEl = document.getElementById("mazeDifficulty");
@@ -779,6 +789,18 @@
         seen.add(word);
         return true;
       });
+    }
+
+    function generateWordList() {
+      const bank = shuffle(wordBanks)[0];
+      const size = Number(sizeEl.value);
+      const words = shuffle(bank)
+        .filter(word => cleanWord(word).length <= size)
+        .slice(0, Math.min(12, bank.length));
+
+      wordsEl.value = words.join("\n");
+      generateWordPuzzle();
+      statusEl.textContent = `단어 목록 ${words.length}개를 자동 생성했습니다.`;
     }
 
     function emptyWordGrid(size) {
@@ -1266,6 +1288,7 @@
     }
 
     modeButtons.forEach(button => button.addEventListener("click", () => setMode(button.dataset.mode)));
+    autoWordsBtn.addEventListener("click", generateWordList);
     generateBtn.addEventListener("click", generateCurrentGame);
     resetBtn.addEventListener("click", resetCurrentGame);
     printBtn.addEventListener("click", () => {
